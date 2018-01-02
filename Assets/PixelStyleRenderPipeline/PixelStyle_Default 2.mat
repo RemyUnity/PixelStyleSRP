@@ -6,9 +6,9 @@ Material:
   m_ObjectHideFlags: 0
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
-  m_Name: PixelStyle_Default
+  m_Name: PixelStyle_Default 2
   m_Shader: {fileID: 4800000, guid: 0a50ef6c2489f1d4ba2030507ba40d87, type: 3}
-  m_ShaderKeywords: _QUANTIZEMETHOD_FIBONNACIABSOLUTE
+  m_ShaderKeywords: _QUANTIZEMETHOD_OCTAHEDRA
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -70,12 +70,12 @@ Material:
     - _Mode: 0
     - _OcclusionStrength: 1
     - _Parallax: 0.02
-    - _PixelStyle_NormalValuesCount: 64
-    - _QuantizeMethod: 0
+    - _PixelStyle_NormalValuesCount: 32
+    - _QuantizeMethod: 2
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1
-    - _Test: 0
+    - _Test: 2
     - _UVSec: 0
     - _ZWrite: 1
     m_Colors:
