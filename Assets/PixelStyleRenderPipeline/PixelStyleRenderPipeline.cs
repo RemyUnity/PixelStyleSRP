@@ -7,6 +7,8 @@ using UnityEngine.Experimental.Rendering;
 [ExecuteInEditMode]
 public class PixelStyleRenderPipeline : RenderPipelineAsset
 {
+    [SerializeField] Vector2Int _resolution = new Vector2Int(426, 240);
+    [SerializeField] int _normalQuantity = 128;
 
 #if UNITY_EDITOR
     [UnityEditor.MenuItem("Assets/Create/Render Pipeline/Pixel Style Render Pipeline")]
@@ -18,20 +20,35 @@ public class PixelStyleRenderPipeline : RenderPipelineAsset
 
     protected override IRenderPipeline InternalCreatePipeline()
     {
-        return new PixelStyleRenderPipelineInstance();
+        return new PixelStyleRenderPipelineInstance(new PixelStyleRenderPipelineData()
+        {
+            normalQuantity = _normalQuantity,
+            resolution = _resolution
+        });
     }
 #endif
 
 }
 
+public struct PixelStyleRenderPipelineData
+{
+    public int normalQuantity;
+    public Vector2Int resolution;
+}
+
 public class PixelStyleRenderPipelineInstance : RenderPipeline
 {
-    public PixelStyleRenderPipelineInstance() { }
+    PixelStyleRenderPipelineData data;
+
+    public PixelStyleRenderPipelineInstance(PixelStyleRenderPipelineData _data)
+    {
+        data = _data;
+    }
 
     public override void Render(ScriptableRenderContext renderContext, Camera[] cameras)
     {
         base.Render(renderContext, cameras);
-        PixelStyleRendering.Render(renderContext, cameras);
+        PixelStyleRendering.Render(renderContext, cameras, data);
     }
 }
 
@@ -39,9 +56,11 @@ public static class PixelStyleRendering
 {
 
     // Main entry point for our scriptable render loop
-    public static void Render(ScriptableRenderContext context, Camera[] cameras)
+    public static void Render(ScriptableRenderContext context, Camera[] cameras, PixelStyleRenderPipelineData _data)
     {
         Camera camera;
+
+        Shader.SetGlobalInt("_PixelStyle_NormalQuantity", _data.normalQuantity);
 
         for (int ci = 0; ci < cameras.Length; ++ci)
         {
@@ -57,9 +76,19 @@ public static class PixelStyleRendering
             // per-camera built-in shader variables).
             context.SetupCameraProperties(camera);
 
+            // Set the intermediate RT
+            int intermediateRT = Shader.PropertyToID("_IntermediateTarget");
+            RenderTargetIdentifier intermediateRTID = new RenderTargetIdentifier(intermediateRT);
+
+            CommandBuffer bindIntermediateRTCmd = new CommandBuffer() { name = "Bind intermediate RT" };
+            bindIntermediateRTCmd.GetTemporaryRT(intermediateRT, _data.resolution.x, _data.resolution.y, 24, FilterMode.Point, RenderTextureFormat.Default, RenderTextureReadWrite.Default, 1, true);
+            bindIntermediateRTCmd.SetRenderTarget(intermediateRTID);
+
+            context.ExecuteCommandBuffer(bindIntermediateRTCmd);
+            bindIntermediateRTCmd.Dispose();
+
             // setup render target and clear it
             var cmd = new CommandBuffer();
-            cmd.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
             cmd.ClearRenderTarget(true, true, Color.black);
             context.ExecuteCommandBuffer(cmd);
             cmd.Dispose();
@@ -77,6 +106,13 @@ public static class PixelStyleRendering
 
             // Draw skybox
             context.DrawSkybox(camera);
+
+            // Blit back intermediate RT to Camera
+            CommandBuffer blitIntermediateRTCmd = new CommandBuffer() { name = "Copy intermediate RT to default RT" };
+            blitIntermediateRTCmd.Blit(intermediateRTID, BuiltinRenderTextureType.CameraTarget);
+
+            context.ExecuteCommandBuffer(blitIntermediateRTCmd);
+            blitIntermediateRTCmd.Dispose();
 
             context.Submit();
         }

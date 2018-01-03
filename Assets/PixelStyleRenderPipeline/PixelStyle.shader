@@ -5,9 +5,10 @@ Shader "PixelStyle/Standard"
 	Properties
 	{
 		[int] _PixelStyle_NormalValuesCount ("Normal Values Count", int) = 20
-		[KeywordEnum(FibonnaciAbsolute, ReverseFibonnaci, Octahedra)] _QuantizeMethod("Quantize Normal Method", Float) = 0
+		[KeywordEnum(None, FibonnaciAbsolute, ReverseFibonnaci, Octahedra)] _QuantizeMethod("Quantize Normal Method", Float) = 0
 		_Test ("Test", float)=0
 		_MainTex ("Texture", 2D) = "white" {}
+		[Normal, NOSCALEOFFSET] _NormalMap("Normal", 2D) = "bump" {}
 	}
 	SubShader
 	{
@@ -65,7 +66,7 @@ Shader "PixelStyle/Standard"
 #pragma vertex vert
 #pragma fragment frag
 
-#pragma multi_compile _QUANTIZEMETHOD_FIBONNACIABSOLUTE _QUANTIZEMETHOD_REVERSEFIBONNACI _QUANTIZEMETHOD_OCTAHEDRA
+#pragma multi_compile _QUANTIZEMETHOD_NONE _QUANTIZEMETHOD_FIBONNACIABSOLUTE _QUANTIZEMETHOD_REVERSEFIBONNACI _QUANTIZEMETHOD_OCTAHEDRA
 
 #include "UnityCG.cginc"
 
@@ -74,6 +75,7 @@ Shader "PixelStyle/Standard"
 			float4 vertex : POSITION;
 			float2 uv : TEXCOORD0;
 			float3 normal : NORMAL;
+			float3 tangent : TANGENT;
 		};
 
 		struct v2f
@@ -81,9 +83,11 @@ Shader "PixelStyle/Standard"
 			float2 uv : TEXCOORD0;
 			float4 vertex : SV_POSITION;
 			float3 normal : NORMAL;
+			float3 tangent : TANGENT;
 		};
 
 		sampler2D _MainTex;
+		sampler2D _NormalMap;
 		float4 _MainTex_ST;
 
 		float _Test;
@@ -93,11 +97,12 @@ Shader "PixelStyle/Standard"
 			v2f o;
 			o.vertex = UnityObjectToClipPos(v.vertex);
 			o.uv = TRANSFORM_TEX(v.uv, _MainTex);
-			o.normal = mul( unity_ObjectToWorld, v.normal);
+			o.normal = normalize( mul( (float3x3) unity_ObjectToWorld, v.normal) );
+			o.tangent = normalize ( mul( (float3x3) unity_ObjectToWorld, v.tangent) );
 			return o;
 		}
 
-		float _PixelStyle_NormalValuesCount;
+		float _PixelStyle_NormalQuantity;
 
 		float3 FibonacciSphere(int _index, int _samples)
 		{
@@ -167,8 +172,32 @@ Shader "PixelStyle/Standard"
 			// axis swizle
 			p.xyz = float3(-p.x, p.z, -p.y);
 
+			/*
+			float sc_r = sqrt(p.x*p.x + p.y*p.y + p.z*p.z);
+			float sc_phi = acos(p.z / sc_r);
+			float sc_theta = atan2(p.y, p.x);
+
+			p.x = sc_r;
+			p.y = sc_phi;
+			p.z = sc_theta;
+			*/
+
+			// for some reason, I need to rotate the coordinates to have correct results.
+
+			float theta = -42.6 * UNITY_PI / 180.0;
+
+			float cs = cos(theta), sn = sin(theta);
+
+			float rx = p.x * cs - p.y * sn;
+			float ry = p.x * sn + p.y * cs;
+
+			p.x = rx;
+			p.y = ry;
+
+			// do the calculation
 
 			float phi = min(atan2(p.y, p.x), UNITY_PI), cosTheta = p.z;
+
 			float k = max(2, floor(
 				log(n * UNITY_PI * sqrt(5) * (1 - cosTheta*cosTheta))
 				/ log(PHI*PHI)));
@@ -232,18 +261,30 @@ Shader "PixelStyle/Standard"
 		fixed4 frag(v2f i) : SV_Target
 		{
 			fixed4 n = fixed4(0,0,0,0);
-			n.xyz = i.normal;
+			
+			fixed3 normalMap = UnpackNormal(tex2D(_NormalMap, i.uv));
+
+			fixed3 bitangent = cross(i.normal, i.tangent.xyz);
+
+			n.xyz = i.tangent * normalMap.x + bitangent * normalMap.y + i.normal * normalMap.z;
+			
+			//n.xyz = bitangent;
 
 #if _QUANTIZEMETHOD_FIBONNACIABSOLUTE
-			n.xyz = ClosestFibonacciSphere(n.xyz, _PixelStyle_NormalValuesCount);
+			n.xyz = ClosestFibonacciSphere(n.xyz, _PixelStyle_NormalQuantity);
 #endif
 #if _QUANTIZEMETHOD_REVERSEFIBONNACI
-			n.xyz = FibonacciSphere(inverseSF(n.xyz, _PixelStyle_NormalValuesCount), _PixelStyle_NormalValuesCount);
+			n.xyz = FibonacciSphere(inverseSF(n.xyz, _PixelStyle_NormalQuantity), _PixelStyle_NormalQuantity);
 			//n.xyz = inverseSF(n.xyz, _PixelStyle_NormalValuesCount) / _PixelStyle_NormalValuesCount;
 #endif
 #if _QUANTIZEMETHOD_OCTAHEDRA
-			n.xyz = QuantizeOct(n.xyz, _PixelStyle_NormalValuesCount / 8);
+			n.xyz = QuantizeOct(n.xyz, floor(pow(_PixelStyle_NormalQuantity, 1/3.0)));
 #endif
+
+			//n.xyz = n.xyz * 0.5 + 0.5;
+
+			//n.xyz = bitangent;
+
 			return n;
 		}
 		ENDCG
