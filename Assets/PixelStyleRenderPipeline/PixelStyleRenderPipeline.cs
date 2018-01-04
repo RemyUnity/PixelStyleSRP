@@ -7,8 +7,9 @@ using UnityEngine.Experimental.Rendering;
 [ExecuteInEditMode]
 public class PixelStyleRenderPipeline : RenderPipelineAsset
 {
-    [SerializeField] Vector2Int _resolution = new Vector2Int(426, 240);
-    [SerializeField] int _normalQuantity = 128;
+    public enum NormalQuantificationMethod { None, Fribonnaci_Brute, Fibonnaci_Reverse, Octahedra }
+
+    [SerializeField] PixelStyleRenderPipelineData settings;
 
 #if UNITY_EDITOR
     [UnityEditor.MenuItem("Assets/Create/Render Pipeline/Pixel Style Render Pipeline")]
@@ -20,20 +21,18 @@ public class PixelStyleRenderPipeline : RenderPipelineAsset
 
     protected override IRenderPipeline InternalCreatePipeline()
     {
-        return new PixelStyleRenderPipelineInstance(new PixelStyleRenderPipelineData()
-        {
-            normalQuantity = _normalQuantity,
-            resolution = _resolution
-        });
+        return new PixelStyleRenderPipelineInstance(settings);
     }
 #endif
 
 }
 
+[System.Serializable]
 public struct PixelStyleRenderPipelineData
 {
     public int normalQuantity;
     public Vector2Int resolution;
+    public PixelStyleRenderPipeline.NormalQuantificationMethod normalQuantificationMethod;
 }
 
 public class PixelStyleRenderPipelineInstance : RenderPipeline
@@ -61,6 +60,34 @@ public static class PixelStyleRendering
         Camera camera;
 
         Shader.SetGlobalInt("_PixelStyle_NormalQuantity", _data.normalQuantity);
+        
+        switch (_data.normalQuantificationMethod)
+        {
+            case PixelStyleRenderPipeline.NormalQuantificationMethod.None:
+                Shader.EnableKeyword("_NORMALQUANTIFICATION_NONE");
+                Shader.DisableKeyword("_NORMALQUANTIFICATION_FRIBONNACIBRUTE");
+                Shader.DisableKeyword("_NORMALQUANTIFICATION_FIBONNACIREVERSE");
+                Shader.DisableKeyword("_NORMALQUANTIFICATION_OCTAHEDRA");
+                break;
+            case PixelStyleRenderPipeline.NormalQuantificationMethod.Fribonnaci_Brute:
+                Shader.DisableKeyword("_NORMALQUANTIFICATION_NONE");
+                Shader.EnableKeyword("_NORMALQUANTIFICATION_FRIBONNACIBRUTE");
+                Shader.DisableKeyword("_NORMALQUANTIFICATION_FIBONNACIREVERSE");
+                Shader.DisableKeyword("_NORMALQUANTIFICATION_OCTAHEDRA");
+                break;
+            case PixelStyleRenderPipeline.NormalQuantificationMethod.Fibonnaci_Reverse:
+                Shader.DisableKeyword("_NORMALQUANTIFICATION_NONE");
+                Shader.DisableKeyword("_NORMALQUANTIFICATION_FRIBONNACIBRUTE");
+                Shader.EnableKeyword("_NORMALQUANTIFICATION_FIBONNACIREVERSE");
+                Shader.DisableKeyword("_NORMALQUANTIFICATION_OCTAHEDRA");
+                break;
+            case PixelStyleRenderPipeline.NormalQuantificationMethod.Octahedra:
+                Shader.DisableKeyword("_NORMALQUANTIFICATION_NONE");
+                Shader.DisableKeyword("_NORMALQUANTIFICATION_FRIBONNACIBRUTE");
+                Shader.DisableKeyword("_NORMALQUANTIFICATION_FIBONNACIREVERSE");
+                Shader.EnableKeyword("_NORMALQUANTIFICATION_OCTAHEDRA");
+                break;
+        }
 
         for (int ci = 0; ci < cameras.Length; ++ci)
         {

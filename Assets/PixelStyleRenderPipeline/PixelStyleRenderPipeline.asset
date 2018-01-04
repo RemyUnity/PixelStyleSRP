@@ -11,5 +11,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: aa1f31a83233f584b8cbd61cc35aadbb, type: 3}
   m_Name: PixelStyleRenderPipeline
   m_EditorClassIdentifier: 
-  _resolution: {x: 213, y: 120}
-  _normalQuantity: 64
+  settings:
+    normalQuantity: 64
+    resolution: {x: 213, y: 120}
+    normalQuantificationMethod: 2
