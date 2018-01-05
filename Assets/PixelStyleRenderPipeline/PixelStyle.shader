@@ -6,7 +6,8 @@ Shader "PixelStyle/Standard"
 	{
 		_Test ("Test", float)=0
 		_MainTex ("Texture", 2D) = "white" {}
-		[Normal, NOSCALEOFFSET] _NormalMap("Normal", 2D) = "bump" {}
+		[Normal, NOSCALEOFFSET] _BumpMap("Normal", 2D) = "bump" {}
+		_NormalIntensity("Normal Intensity", Range(-2, 2)) = 1
 	}
 	SubShader
 	{
@@ -86,7 +87,8 @@ Shader "PixelStyle/Standard"
 		};
 
 		sampler2D _MainTex;
-		sampler2D _NormalMap;
+		sampler2D _BumpMap;
+		float _NormalIntensity;
 		float4 _MainTex_ST;
 
 		float _Test;
@@ -103,13 +105,19 @@ Shader "PixelStyle/Standard"
 
 		fixed4 frag(v2f i) : SV_Target
 		{
-			fixed4 n = fixed4(0,0,0,0);
+			fixed4 n = fixed4(i.normal,0);
 			
-			fixed3 normalMap = UnpackNormal(tex2D(_NormalMap, i.uv));
+			fixed3 normalMap = UnpackNormal(tex2D(_BumpMap, i.uv));
+			if (_NormalIntensity != 0)
+			{
+				normalMap.xy *= _NormalIntensity;
+				normalMap.z /= abs(_NormalIntensity);
+				normalMap = normalize(normalMap);
 
-			fixed3 bitangent = cross(i.normal, i.tangent.xyz);
+				fixed3 bitangent = cross(i.normal, i.tangent.xyz);
 
-			n.xyz = i.tangent * normalMap.x + bitangent * normalMap.y + i.normal * normalMap.z;
+				n.xyz = i.tangent * normalMap.x + bitangent * normalMap.y + i.normal * normalMap.z;
+			}
 
 			QuantifyNormal(n.xyz);
 

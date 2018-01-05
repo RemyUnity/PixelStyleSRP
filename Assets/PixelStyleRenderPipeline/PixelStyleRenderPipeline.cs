@@ -53,6 +53,7 @@ public class PixelStyleRenderPipelineInstance : RenderPipeline
 
 public static class PixelStyleRendering
 {
+    static Material deferredMat;
 
     // Main entry point for our scriptable render loop
     public static void Render(ScriptableRenderContext context, Camera[] cameras, PixelStyleRenderPipelineData _data)
@@ -103,40 +104,64 @@ public static class PixelStyleRendering
             // per-camera built-in shader variables).
             context.SetupCameraProperties(camera);
 
-            // Set the intermediate RT
-            int intermediateRT = Shader.PropertyToID("_IntermediateTarget");
-            RenderTargetIdentifier intermediateRTID = new RenderTargetIdentifier(intermediateRT);
+            // Set the albedo RT
+            int albedoRT = Shader.PropertyToID("_AlbedoRT");
+            RenderTargetIdentifier albedoRTID = new RenderTargetIdentifier(albedoRT);
 
-            CommandBuffer bindIntermediateRTCmd = new CommandBuffer() { name = "Bind intermediate RT" };
-            bindIntermediateRTCmd.GetTemporaryRT(intermediateRT, _data.resolution.x, _data.resolution.y, 24, FilterMode.Point, RenderTextureFormat.Default, RenderTextureReadWrite.Default, 1, true);
-            bindIntermediateRTCmd.SetRenderTarget(intermediateRTID);
+            CommandBuffer bindAlbedoRTCmd = new CommandBuffer() { name = "Bind Albedo RT" };
+            bindAlbedoRTCmd.GetTemporaryRT(albedoRT, _data.resolution.x, _data.resolution.y, 24, FilterMode.Point, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Default, 1, true);
+            bindAlbedoRTCmd.SetRenderTarget(albedoRTID);
 
-            context.ExecuteCommandBuffer(bindIntermediateRTCmd);
-            bindIntermediateRTCmd.Dispose();
+            context.ExecuteCommandBuffer(bindAlbedoRTCmd);
+            bindAlbedoRTCmd.Dispose();
 
             // setup render target and clear it
-            var cmd = new CommandBuffer();
-            cmd.ClearRenderTarget(true, true, Color.black);
-            context.ExecuteCommandBuffer(cmd);
-            cmd.Dispose();
+            var cmd_Albedo = new CommandBuffer();
+            cmd_Albedo.ClearRenderTarget(true, true, Color.black);
+            context.ExecuteCommandBuffer(cmd_Albedo);
+            cmd_Albedo.Dispose();
 
             // Draw opaque objects using PixelStylePass shader pass
-            //var drawSettings = new DrawRendererSettings(camera, new ShaderPassName("PixelStylePass")) { sorting = { flags = SortFlags.CommonOpaque } };
-            //var filterSettings = new FilterRenderersSettings(true) { renderQueueRange = RenderQueueRange.opaque };
-            //context.DrawRenderers(cull.visibleRenderers, ref drawSettings, filterSettings);
+            var albedo_DrawSettings = new DrawRendererSettings(camera, new ShaderPassName("PixelStylePass")) { sorting = { flags = SortFlags.CommonOpaque } };
+            var albedo_FilterSettings = new FilterRenderersSettings(true) { renderQueueRange = RenderQueueRange.opaque };
+            context.DrawRenderers(cull.visibleRenderers, ref albedo_DrawSettings, albedo_FilterSettings);
+
+
+            // Set the normal RT
+            int normalRT = Shader.PropertyToID("_NormalRT");
+            RenderTargetIdentifier normalRTID = new RenderTargetIdentifier(normalRT);
+
+            CommandBuffer bindNormalRTCmd = new CommandBuffer() { name = "Bind Normal RT" };
+            bindNormalRTCmd.GetTemporaryRT(normalRT, _data.resolution.x, _data.resolution.y, 24, FilterMode.Point, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Default, 1, true);
+            bindNormalRTCmd.SetRenderTarget(normalRTID);
+
+            context.ExecuteCommandBuffer(bindNormalRTCmd);
+            bindNormalRTCmd.Dispose();
+
+            // setup render target and clear it
+            var cmd_Normal = new CommandBuffer();
+            cmd_Normal.ClearRenderTarget(true, true, Color.black);
+            context.ExecuteCommandBuffer(cmd_Normal);
+            cmd_Normal.Dispose();
 
             // Draw opaque objects using PixelStylePass_Normal shader pass
             //Shader.SetGlobalInt("_PixelStyle_NormalValuesCount", 50);
-            var drawSettings = new DrawRendererSettings(camera, new ShaderPassName("PixelStylePass_Normal")) { sorting = { flags = SortFlags.CommonOpaque } };
-            var filterSettings = new FilterRenderersSettings(true) { renderQueueRange = RenderQueueRange.opaque };
-            context.DrawRenderers(cull.visibleRenderers, ref drawSettings, filterSettings);
+            var normal_DrawSettings = new DrawRendererSettings(camera, new ShaderPassName("PixelStylePass_Normal")) { sorting = { flags = SortFlags.CommonOpaque } };
+            var normal_FilterSettings = new FilterRenderersSettings(true) { renderQueueRange = RenderQueueRange.opaque };
+            context.DrawRenderers(cull.visibleRenderers, ref normal_DrawSettings, normal_FilterSettings);
 
             // Draw skybox
             context.DrawSkybox(camera);
 
+            // Setup deferred compositor material
+            if ( deferredMat == null )
+            {
+                deferredMat = new Material(Shader.Find("Hidden/PixelStyle/Deferred"));
+            }
+
             // Blit back intermediate RT to Camera
             CommandBuffer blitIntermediateRTCmd = new CommandBuffer() { name = "Copy intermediate RT to default RT" };
-            blitIntermediateRTCmd.Blit(intermediateRTID, BuiltinRenderTextureType.CameraTarget);
+            blitIntermediateRTCmd.Blit(normalRTID, BuiltinRenderTextureType.CameraTarget, deferredMat);
 
             context.ExecuteCommandBuffer(blitIntermediateRTCmd);
             blitIntermediateRTCmd.Dispose();

@@ -13,5 +13,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   settings:
     normalQuantity: 64
-    resolution: {x: 213, y: 120}
+    resolution: {x: 192, y: 108}
     normalQuantificationMethod: 2

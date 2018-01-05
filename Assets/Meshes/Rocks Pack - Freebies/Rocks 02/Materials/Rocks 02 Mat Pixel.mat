@@ -40,6 +40,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Floats:
     - _EmissionLM: 0
+    - _NormalIntensity: 1.44
     - _PixelStyle_NormalValuesCount: 20
     - _QuantizeMethod: 2
     - _Shininess: 0.08362178
