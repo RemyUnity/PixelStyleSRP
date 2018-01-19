@@ -9,7 +9,15 @@ public class PixelStyleRenderPipeline : RenderPipelineAsset
 {
     public enum NormalQuantificationMethod { None, Fribonnaci_Brute, Fibonnaci_Reverse, Octahedra }
 
-    [SerializeField] PixelStyleRenderPipelineData settings;
+    [SerializeField] PixelStyleRenderPipelineData settings = new PixelStyleRenderPipelineData()
+    {
+        colorQuantity = 256,
+        normalQuantity = 64,
+        resolution = new Vector2Int(384, 216),
+        normalQuantificationMethod = NormalQuantificationMethod.Fibonnaci_Reverse,
+        
+        debug = DebugStyle.None
+    };
 
 #if UNITY_EDITOR
     [UnityEditor.MenuItem("Assets/Create/Render Pipeline/Pixel Style Render Pipeline")]
@@ -30,10 +38,15 @@ public class PixelStyleRenderPipeline : RenderPipelineAsset
 [System.Serializable]
 public struct PixelStyleRenderPipelineData
 {
+    public int colorQuantity;
     public int normalQuantity;
     public Vector2Int resolution;
     public PixelStyleRenderPipeline.NormalQuantificationMethod normalQuantificationMethod;
+
+    public DebugStyle debug;
 }
+
+public enum DebugStyle { None, Albedo, NormalsWS };
 
 public class PixelStyleRenderPipelineInstance : RenderPipeline
 {
@@ -60,30 +73,43 @@ public static class PixelStyleRendering
     {
         Camera camera;
 
+        Shader.SetGlobalInt("_PixelStyle_ColorQuantity", _data.colorQuantity);
         Shader.SetGlobalInt("_PixelStyle_NormalQuantity", _data.normalQuantity);
+
+        switch (_data.debug )
+        {
+            case DebugStyle.None:
+                Shader.DisableKeyword("Debug_Albedo");
+                Shader.DisableKeyword("Debug_NormalWS");
+                break;
+            case DebugStyle.Albedo:
+                Shader.EnableKeyword("Debug_Albedo");
+                Shader.DisableKeyword("Debug_NormalWS");
+                break;
+            case DebugStyle.NormalsWS:
+                Shader.DisableKeyword("Debug_Albedo");
+                Shader.EnableKeyword("Debug_NormalWS");
+                break;
+        }
         
         switch (_data.normalQuantificationMethod)
         {
             case PixelStyleRenderPipeline.NormalQuantificationMethod.None:
-                Shader.EnableKeyword("_NORMALQUANTIFICATION_NONE");
                 Shader.DisableKeyword("_NORMALQUANTIFICATION_FRIBONNACIBRUTE");
                 Shader.DisableKeyword("_NORMALQUANTIFICATION_FIBONNACIREVERSE");
                 Shader.DisableKeyword("_NORMALQUANTIFICATION_OCTAHEDRA");
                 break;
             case PixelStyleRenderPipeline.NormalQuantificationMethod.Fribonnaci_Brute:
-                Shader.DisableKeyword("_NORMALQUANTIFICATION_NONE");
                 Shader.EnableKeyword("_NORMALQUANTIFICATION_FRIBONNACIBRUTE");
                 Shader.DisableKeyword("_NORMALQUANTIFICATION_FIBONNACIREVERSE");
                 Shader.DisableKeyword("_NORMALQUANTIFICATION_OCTAHEDRA");
                 break;
             case PixelStyleRenderPipeline.NormalQuantificationMethod.Fibonnaci_Reverse:
-                Shader.DisableKeyword("_NORMALQUANTIFICATION_NONE");
                 Shader.DisableKeyword("_NORMALQUANTIFICATION_FRIBONNACIBRUTE");
                 Shader.EnableKeyword("_NORMALQUANTIFICATION_FIBONNACIREVERSE");
                 Shader.DisableKeyword("_NORMALQUANTIFICATION_OCTAHEDRA");
                 break;
             case PixelStyleRenderPipeline.NormalQuantificationMethod.Octahedra:
-                Shader.DisableKeyword("_NORMALQUANTIFICATION_NONE");
                 Shader.DisableKeyword("_NORMALQUANTIFICATION_FRIBONNACIBRUTE");
                 Shader.DisableKeyword("_NORMALQUANTIFICATION_FIBONNACIREVERSE");
                 Shader.EnableKeyword("_NORMALQUANTIFICATION_OCTAHEDRA");

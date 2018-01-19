@@ -12,6 +12,8 @@ MonoBehaviour:
   m_Name: PixelStyleRenderPipeline
   m_EditorClassIdentifier: 
   settings:
+    colorQuantity: 256
     normalQuantity: 64
-    resolution: {x: 192, y: 108}
-    normalQuantificationMethod: 2
+    resolution: {x: 384, y: 216}
+    normalQuantificationMethod: 0
+    debug: 1
