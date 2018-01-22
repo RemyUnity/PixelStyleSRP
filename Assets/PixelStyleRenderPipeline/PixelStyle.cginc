@@ -175,7 +175,7 @@ float3 QuantifyOct(float3 _v, int _quantity)
 	return normalize(v);
 }
 
-float3 QuantifyOct(float3 _v, int _quantity)
+float3 QuantifyOct(float3 _v)
 {
 	return QuantifyOct(_v, pow(_PixelStyle_NormalQuantity, 1.0/3.0));
 }
